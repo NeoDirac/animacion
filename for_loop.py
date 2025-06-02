@@ -1,26 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
-import os
 from matplotlib.collections import LineCollection
-
-# Crear el archivo CSV si no existe
-def crear_csv_hidrogeno(archivo):
-    datos = [
-        {'nivel_principal': 1, 'energia': -13.60, 'symbol': 'K'},
-        {'nivel_principal': 2, 'energia': -3.40, 'symbol': 'L'},
-        {'nivel_principal': 3, 'energia': -1.51, 'symbol': 'M'},
-        {'nivel_principal': 4, 'energia': -0.85, 'symbol': 'N'},
-        {'nivel_principal': 5, 'energia': -0.54, 'symbol': 'O'},
-        {'nivel_principal': 6, 'energia': -0.38, 'symbol': 'P'},
-        {'nivel_principal': 7, 'energia': -0.28, 'symbol': 'Q'}
-    ]
-    
-    with open(archivo, 'w', newline='') as f:
-        campos = ['nivel_principal', 'energia', 'symbol']
-        writer = csv.DictWriter(f, fieldnames=campos)
-        writer.writeheader()
-        writer.writerows(datos)
+import os
 
 # Leer niveles de energía desde CSV
 def leer_niveles_energia(archivo_csv):
@@ -57,19 +39,20 @@ def generar_espectro(transiciones, archivo_salida):
     # Configurar gráfico
     fig, ax = plt.subplots(figsize=(12, 6))
     
-    # Crear segmentos de líneas
+    # Calcular alturas proporcionales a la energía
+    intensidades = [t['energia_eV'] for t in visibles]
+    max_intensidad = max(intensidades) if intensidades else 1
+    alturas = [i / max_intensidad for i in intensidades]
+    
+    # Crear segmentos de líneas con altura proporcional
     segmentos = []
-    intensidades = []
-    for t in visibles:
+    for t, h in zip(visibles, alturas):
         wl = t['longitud_onda_nm']
-        segmentos.append([(wl, 0), (wl, 1)])
-        intensidades.append(t['energia_eV'])
+        segmentos.append([(wl, 0), (wl, h)])
     
-    # Normalizar intensidades para colorear
-    max_intensidad = max(intensidades)
+    # Colorear según energía y aumentar grosor
     colores = plt.cm.plasma(np.array(intensidades)/max_intensidad)
-    
-    lc = LineCollection(segmentos, linewidths=2, colors=colores)
+    lc = LineCollection(segmentos, linewidths=8, colors=colores)
     ax.add_collection(lc)
     
     # Configurar ejes
@@ -77,7 +60,7 @@ def generar_espectro(transiciones, archivo_salida):
     ax.set_ylim(0, 1.2)
     ax.set_title('Espectro Atómico del Hidrógeno', fontsize=14)
     ax.set_xlabel('Longitud de onda (nm)', fontsize=12)
-    ax.set_ylabel('Intensidad relativa', fontsize=12)
+    ax.set_ylabel('Intensidad relativa (normalizada)', fontsize=12)
     ax.grid(True, alpha=0.3)
     
     # Anotar transiciones importantes
@@ -87,13 +70,11 @@ def generar_espectro(transiciones, archivo_salida):
         434.0: r'H$\gamma$ (n=5→2)',
         410.2: r'H$\delta$ (n=6→2)'
     }
-    
     for wl, label in lineas_balmer.items():
         ax.text(wl, 1.05, label, ha='center', fontsize=9, rotation=90)
     
     # Añadir barra de color
-    sm = plt.cm.ScalarMappable(cmap='plasma', 
-                              norm=plt.Normalize(0, max_intensidad))
+    sm = plt.cm.ScalarMappable(cmap='plasma', norm=plt.Normalize(0, max_intensidad))
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax)
     cbar.set_label('Energía (eV)', fontsize=10)
@@ -112,13 +93,14 @@ def guardar_transiciones(transiciones, archivo_salida):
         writer.writeheader()
         writer.writerows(transiciones)
 
+
 # Programa principal
 if __name__ == "__main__":
-    # Crear archivo CSV si no existe
-    archivo_csv = 'niveles_hidrogeno.csv'
-    if not os.path.exists(archivo_csv):
-        crear_csv_hidrogeno(archivo_csv)
-        print(f"Archivo {archivo_csv} creado exitosamente!")
+    archivo_csv = '../datos/niveles_hidrogeno.csv'
+    archivo_resultados = '../resultados/transiciones_visibles.csv'
+
+    print("Directorio actual:", os.getcwd())
+    print("Archivo CSV buscado en:", os.path.abspath(archivo_csv))
     
     # 1. Leer datos desde CSV
     niveles = leer_niveles_energia(archivo_csv)
@@ -131,6 +113,8 @@ if __name__ == "__main__":
     # 3. Generar espectro y obtener transiciones visibles
     transiciones_visibles = generar_espectro(transiciones, 'espectro_hidrogeno.png')
     
-    # 4. Guardar resultados
-    guardar_transiciones(transiciones_visibles, 'transiciones_visibles.csv')
-    print("Resultados guardados en 'transiciones_visibles.csv'")
+    # 4. Guardar resultados en la carpeta resultados
+    guardar_transiciones(transiciones_visibles, archivo_resultados)
+    print(f"Resultados guardados en '{archivo_resultados}'")
+
+
